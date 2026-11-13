@@ -3,7 +3,7 @@
 // (live.on('game:state')) kullanır; bu dosya bunları Supabase RPC çağrılarına,
 // Realtime aboneliğine ve kısa aralıklı yoklamaya (polling) çevirir.
 
-import { SUPABASE_URL, SUPABASE_KEY } from './config.js?v=8';
+import { SUPABASE_URL, SUPABASE_KEY } from './config.js?v=9';
 
 export const isConfigured = Boolean(SUPABASE_URL && SUPABASE_KEY && window.supabase);
 

@@ -1,5 +1,5 @@
-import { api, live, isConfigured } from './backend.js?v=8';
-import { sound } from './sound.js?v=8';
+import { api, live, isConfigured } from './backend.js?v=9';
+import { sound } from './sound.js?v=9';
 import {
   icon,
   crownSVG,
@@ -26,7 +26,7 @@ import {
   modal,
   confirmModal,
   formModal,
-} from './ui.js?v=8';
+} from './ui.js?v=9';
 
 // =========================================================
 // Durum & olay yolu
@@ -229,6 +229,7 @@ const routes = {
   profile: { render: screenProfile, nav: 'profile' },
   settings: { render: screenSettings, nav: 'settings' },
   admin: { render: screenAdmin, admin: true, wide: true },
+  demo: { render: screenDemo, admin: true },
 };
 
 function go(path) {
@@ -536,8 +537,8 @@ function showNextAdminRequest() {
 // Kazandın ekranı (12/16)
 // =========================================================
 
-function showWin({ prize, label, amount, cards }) {
-  const u = state.user;
+function showWin({ prize, label, amount, cards, name, onClose }) {
+  const u = name ? { name, username: name } : state.user;
   if (!u) return;
   sound.win();
   if (navigator.vibrate) navigator.vibrate([120, 60, 120, 60, 240]);
@@ -562,7 +563,10 @@ function showWin({ prize, label, amount, cards }) {
     <p class="small muted">${esc(label)} · Kart No: ${cards.join(', ')}</p>
     <button class="btn btn-gold" style="min-width:220px">Devam Et ${icon('chevron')}</button>
   </div>`);
-  ov.querySelector('button').addEventListener('click', () => ov.remove());
+  ov.querySelector('button').addEventListener('click', () => {
+    ov.remove();
+    if (onClose) onClose();
+  });
   document.body.appendChild(ov);
   sound.speak(prize === 'tombala' ? 'Tombala! Tebrikler!' : `${label}! Tebrikler!`);
 }
@@ -1695,6 +1699,226 @@ function screenBye(ctx) {
 }
 
 // =========================================================
+// Reklam / Demo modu
+// Yalnızca bu cihazda, senaryolu çalışır. Veritabanına hiçbir şey yazmaz;
+// gerçek oyunu, kartları, bakiyeleri ve kazananlar listesini etkilemez.
+// =========================================================
+
+function shuffleArr(a) {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// Seçilen kartta sırasıyla 1. çinko, 2. çinko ve tombala olacak şekilde top sırası üretir
+function demoOrder(grid) {
+  const rows = shuffleArr(grid.map((r) => shuffleArr(r.filter(Boolean))));
+  const [A, B, C] = rows;
+  const onCard = new Set(grid.flat().filter(Boolean));
+  const fillers = shuffleArr(Array.from({ length: 90 }, (_, i) => i + 1).filter((n) => !onCard.has(n)));
+  const take = (k) => fillers.splice(0, k);
+  const nearEnd = (arr, x, span = 4) => {
+    const pos = arr.length - Math.floor(Math.random() * span);
+    arr.splice(Math.max(0, pos), 0, x);
+    return arr;
+  };
+  const p1 = nearEnd(shuffleArr([...A.slice(0, A.length - 1), B[0], B[1], C[0], ...take(14)]), A[A.length - 1]);
+  const p2 = nearEnd(shuffleArr([...B.slice(2, B.length - 1), C[1], C[2], ...take(13)]), B[B.length - 1]);
+  const p3 = [...shuffleArr([...C.slice(3, C.length - 1), ...take(12)]), C[C.length - 1]];
+  return [...p1, ...p2, ...p3];
+}
+
+function screenDemo(ctx) {
+  const setup = mount(`<section class="screen no-nav">
+    ${barHead('Reklam / Demo Modu', 'Video çekimi için senaryolu gösterim', 'tv', 'admin')}
+    <div class="panel pad stack">
+      <p class="small muted">Bu gösterim yalnızca bu cihazda oynar. Gerçek oyunu, kartları, bakiyeleri ve kazananlar
+      listesini etkilemez; başka hiç kimse görmez. Seçtiğin kart sırasıyla 1. Çinko, 2. Çinko ve Tombala yapar.</p>
+      <div class="form-grid">
+        <div><label class="label" for="d-card">Kazanacak Kart No</label><input class="input" id="d-card" type="number" min="1" max="100" value="7" /></div>
+        <div><label class="label" for="d-name">Kazanan Adı</label><input class="input" id="d-name" maxlength="40" value="${esc(state.user.name)}" /></div>
+        <div><label class="label" for="d-pool">Havuz (TL)</label><input class="input" id="d-pool" type="number" min="0" value="5000" /></div>
+        <div><label class="label" for="d-speed">Top Aralığı (sn)</label><input class="input" id="d-speed" type="number" min="1" max="10" value="3" /></div>
+        <div><label class="label" for="d-players">Gösterilen Oyuncu</label><input class="input" id="d-players" type="number" min="1" value="48" /></div>
+        <div><label class="label" for="d-cards">Gösterilen Kart</label><input class="input" id="d-cards" type="number" min="1" max="100" value="100" /></div>
+      </div>
+      <p class="hint">Ödül dağılımı: 1. Çinko %20 · 2. Çinko %30 · Tombala %50</p>
+      <button class="btn btn-gold btn-block" data-start>${icon('play')}Demoyu Başlat</button>
+    </div>
+  </section>`);
+
+  $('[data-start]', setup).addEventListener('click', async (e) => {
+    sound.unlock();
+    const cardNo = Math.min(100, Math.max(1, Math.round(Number($('#d-card', setup).value) || 1)));
+    const cfg = {
+      cardNo,
+      name: $('#d-name', setup).value.trim() || state.user.name,
+      pool: Math.max(0, Number($('#d-pool', setup).value) || 0),
+      speed: Math.min(10, Math.max(1, Number($('#d-speed', setup).value) || 3)),
+      players: Math.max(1, Math.round(Number($('#d-players', setup).value) || 1)),
+      cards: Math.max(1, Math.round(Number($('#d-cards', setup).value) || 1)),
+    };
+    const deck = await run(() => fetchDeck(), e.currentTarget);
+    const grid = deck && deck.cards && deck.cards[cardNo - 1];
+    if (!grid) return toast('Kart bulunamadı.', 'error');
+    runDemo(ctx, cfg, grid);
+  });
+}
+
+function runDemo(ctx, cfg, grid) {
+  const order = demoOrder(grid);
+  const split = { cinko1: 20, cinko2: 30, tombala: 50 };
+  const amounts = {};
+  for (const k of Object.keys(split)) amounts[k] = Math.round((cfg.pool * split[k]) / 100 * 100) / 100;
+  const prizes = { cinko1: null, cinko2: null, tombala: null };
+  const drawn = [];
+  let started = Date.now();
+  let nextAt = started + 3000;
+  let paused = false;
+  let finished = false;
+
+  const scr = mount(`<section class="screen no-nav">
+    <div class="row between">
+      <button class="back-btn" data-back="demo" aria-label="Geri">${icon('back')}</button>
+      <div class="row small"><span class="muted">Oyun #1</span>${statusPill('running')}</div>
+    </div>
+    <div class="game-top">
+      <span class="pill-box">${icon('clock')}<span data-timer>00:00:00</span></span>
+      <span class="pill-box title">Tombala</span>
+      <span class="pill-box prize-box"><small>Havuz Ödülü</small><b>${icon('trophy')}<span>${fmtTL(cfg.pool)}</span></b></span>
+    </div>
+    <div class="stage">
+      <div class="beam l"></div><div class="beam r"></div>
+      <div class="lights">${'<i></i>'.repeat(14)}</div>
+      <div class="demo-tag">Demo · Temsili gösterim</div>
+      <div class="sphere-wrap"><div class="sphere" data-sphere>${[7, 38, 58, 26, 33, 20, 6, 89, 49, 72, 14, 65, 3, 81]
+        .map((n, i) => {
+          const a = (i / 14) * Math.PI * 2;
+          const r = 38 + (i % 3) * 14;
+          const rnd = () => `${Math.round((Math.random() - 0.5) * 60)}px`;
+          return `<span class="ball" style="--s:34px;--c:${['#e53935', '#2e9e4f', '#f57c00', '#1e5bd8', '#d4a017', '#8e24aa'][i % 6]};left:${
+            83 + Math.cos(a) * r
+          }px;top:${92 + Math.sin(a) * r * 0.75}px;--x1:${rnd()};--y1:${rnd()};--x2:${rnd()};--y2:${rnd()};--x3:${rnd()};--y3:${rnd()};--d:${(
+            1.8 +
+            Math.random() * 1.6
+          ).toFixed(2)}s;--dl:-${(Math.random() * 2).toFixed(2)}s"><b>${n}</b></span>`;
+        })
+        .join('')}</div><div class="pedestal"></div></div>
+      <div class="stage-info"><b data-count>0/90</b>top çekildi</div>
+      <div class="current-ball" data-current hidden></div>
+      <div class="stage-msg" data-msg>Çekiliş başlıyor...</div>
+    </div>
+    <div class="progress" aria-hidden="true"><i data-progress></i></div>
+    <div class="row between small muted"><span data-next></span><span>${cfg.players} oyuncu · ${cfg.cards} kart</span></div>
+    <div class="panel pad"><div class="section-title">Son 10 Taş</div><div class="last-balls" data-last></div></div>
+    <div class="prize-row" data-prizes></div>
+    <div class="section-title" style="margin:6px 0 -4px">Kartlarım</div>
+    <div class="cards-list" data-cards></div>
+    <div class="panel pad"><div class="section-title">Çekilen Sayılar</div><div class="board" data-board>${Array.from(
+      { length: 90 },
+      (_, i) => `<span data-b="${i + 1}">${i + 1}</span>`
+    ).join('')}</div></div>
+  </section>`);
+
+  const paint = (pop) => {
+    const set = new Set(drawn);
+    const last = drawn[drawn.length - 1];
+    $('[data-count]', scr).textContent = `${drawn.length}/90`;
+    const cur = $('[data-current]', scr);
+    cur.hidden = !last;
+    if (last) cur.innerHTML = `${ball(last, 92, pop ? 'pop' : '')}<small>Son Çekilen</small>`;
+    const ten = drawn.slice(-10).reverse();
+    let lb = ten.map((n, i) => ball(n, 46, i === 0 && pop ? 'new' : 'flat')).join('');
+    for (let i = ten.length; i < 10; i++) lb += `<span class="slot"></span>`;
+    $('[data-last]', scr).innerHTML = lb;
+    for (const b of $$('[data-b]', scr)) {
+      const n = Number(b.dataset.b);
+      b.classList.toggle('on', set.has(n));
+      b.classList.toggle('last', pop && n === last);
+    }
+    $('[data-cards]', scr).innerHTML = cardHTML(cfg.cardNo, grid, { drawnSet: set, last: pop ? last : null, showProgress: true });
+    $('[data-prizes]', scr).innerHTML = prizeRow({ status: finished ? 'finished' : 'running', prizes, prizeAmounts: amounts });
+    $('[data-msg]', scr).innerHTML = finished
+      ? `🏆 Tombala: <span class="gold">${esc(cfg.name)}</span>`
+      : drawn.length
+        ? ''
+        : 'Çekiliş başlıyor...';
+  };
+
+  const award = () => {
+    const rows = rowsDone(grid, new Set(drawn));
+    for (const [k, need] of [['cinko1', 1], ['cinko2', 2], ['tombala', 3]]) {
+      if (prizes[k] || rows < need) continue;
+      prizes[k] = { amount: amounts[k], winners: [{ name: cfg.name, cardNo: cfg.cardNo, amount: amounts[k] }] };
+      if (k === 'tombala') finished = true;
+      paused = true;
+      const label = { cinko1: '1. Çinko', cinko2: '2. Çinko', tombala: 'Tombala' }[k];
+      ctx.later(() => {
+        if (!scr.isConnected) return;
+        showWin({
+          prize: k,
+          label,
+          amount: amounts[k],
+          cards: [cfg.cardNo],
+          name: cfg.name,
+          onClose: () => {
+            paused = finished;
+            nextAt = Date.now() + cfg.speed * 1000;
+          },
+        });
+      }, 1300);
+      return;
+    }
+  };
+
+  const step = () => {
+    if (!order.length || finished) return;
+    const n = order.shift();
+    const sphere = $('[data-sphere]', scr);
+    sphere.classList.add('fast');
+    sound.draw();
+    ctx.later(() => {
+      if (!scr.isConnected) return;
+      sphere.classList.remove('fast');
+      drawn.push(n);
+      paint(true);
+      sound.speak(n);
+      if (grid.flat().includes(n)) ctx.later(() => sound.hit(), 350);
+      award();
+      paint(false);
+    }, 900);
+  };
+
+  paint(false);
+  ctx.every(() => {
+    if (!scr.isConnected) return;
+    const now = Date.now();
+    $('[data-timer]', scr).textContent = fmtDuration(now - started);
+    const prog = $('[data-progress]', scr);
+    const next = $('[data-next]', scr);
+    if (finished) {
+      prog.style.width = '100%';
+      next.textContent = 'Oyun bitti';
+      return;
+    }
+    if (paused) {
+      next.textContent = 'Kazanan açıklanıyor...';
+      return;
+    }
+    const total = cfg.speed * 1000;
+    const rem = Math.max(0, nextAt - now);
+    prog.style.width = `${Math.min(100, (1 - rem / total) * 100)}%`;
+    next.textContent = rem > 0 ? `Sonraki top: ${Math.ceil(rem / 1000)} sn` : 'Top çekiliyor...';
+    if (rem <= 0) {
+      nextAt = now + total + 900;
+      step();
+    }
+  }, 200);
+}
+
+// =========================================================
 // 14/16 Admin Paneli
 // =========================================================
 
@@ -1767,6 +1991,7 @@ function screenAdmin(ctx) {
           )}Oyunu İptal Et</button>
           <button class="btn btn-gold btn-sm grow" data-act="new" ${['finished', 'cancelled'].includes(g.status) ? '' : 'disabled'}>${icon('plus')}Yeni Oyun</button>
         </div>
+        <button class="btn btn-ghost btn-sm btn-block" style="margin-top:10px" data-go="demo">${icon('tv')}Reklam / Demo Modu</button>
       </div>
       <div class="stack">
         <div class="panel pad">
