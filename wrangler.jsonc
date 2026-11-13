@@ -1,0 +1,10 @@
+// Cloudflare ayarı: sitenin dosyaları "public" klasöründedir (derleme gerekmez).
+// Cloudflare Workers "Import a repository" akışıyla kurulursa bu dosya kullanılır;
+// Cloudflare Pages akışında Build output directory olarak "public" yazmanız yeterlidir.
+{
+  "name": "tombala",
+  "compatibility_date": "2025-10-01",
+  "assets": {
+    "directory": "./public"
+  }
+}
