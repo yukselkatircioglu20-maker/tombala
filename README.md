@@ -18,20 +18,25 @@ Gerçek zamanlı, çok oyunculu web tabanlı Tombala oyunu. Koyu lacivert & alt�
 
 ### 2. Site ayarı
 
-`public/js/config.js` dosyasına bu iki bilgiyi yazın:
+`docs/js/config.js` dosyasına bu iki bilgiyi yazın:
 
 ```js
 export const SUPABASE_URL = 'https://xxxxxxxx.supabase.co';
 export const SUPABASE_KEY = 'eyJ... veya sb_publishable_...';
 ```
 
-### 3. Cloudflare Pages
+### 3. Yayınlama
+
+**GitHub Pages (en kolayı):** Repo → **Settings → Pages → Source: Deploy from a branch**, dal olarak varsayılan dalı ve klasör olarak **/docs** seçip **Save**.
+Site `https://<kullanıcı-adı>.github.io/tombala/` adresinde açılır. (Ücretsiz hesapta repo herkese açık olmalıdır.)
+
+**veya Cloudflare Pages:**
 
 1. dash.cloudflare.com → **Workers & Pages → Create → Pages → Connect to Git**, GitHub'daki `tombala` reposunu seçin.
 2. Ayarlar:
    - **Framework preset:** None
    - **Build command:** _(boş bırakın)_
-   - **Build output directory:** `public`
+   - **Build output directory:** `docs`
 3. **Save and Deploy** → `https://tombala.pages.dev` benzeri bir link alırsınız.
    GitHub'a her gönderimde site otomatik güncellenir.
 
@@ -87,7 +92,7 @@ Kartlar geleneksel düzendedir: 3 satır × 9 sütun, her satırda 5 sayı; süt
 ## Mimari ve güvenlik
 
 ```
-public/               Cloudflare Pages'e yüklenen statik site
+docs/                 Yayınlanan statik site (GitHub Pages / Cloudflare / Vercel)
   js/config.js        Supabase URL + anon anahtarı
   js/backend.js       Supabase RPC, Realtime aboneliği ve yedek yoklama
   js/app.js           Tüm ekranlar
@@ -107,7 +112,7 @@ scripts/serve.js      Yerel önizleme sunucusu (npm start)
 
 ## Sık karşılaşılanlar
 
-- **"Supabase bağlantısı yapılandırılmamış"** → `public/js/config.js` boş.
+- **"Supabase bağlantısı yapılandırılmamış"** → `docs/js/config.js` boş.
 - **"Veritabanı kurulmamış"** → `supabase/schema.sql` SQL Editor'de çalıştırılmamış.
 - **Ücretsiz Supabase projesi 1 hafta kullanılmazsa duraklatılır** → Supabase panelinden **Restore** ile tekrar açılır.
 - Şifresini unutan kullanıcıya yönetici, Admin Paneli → Kullanıcılar → **Şifre Sıfırla** ile geçici şifre verir.

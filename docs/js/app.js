@@ -183,7 +183,7 @@ function systemNotify(text) {
   if (!state.settings.notifications || !document.hidden) return;
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
   try {
-    new Notification('Tombala', { body: text, icon: '/img/icon.svg' });
+    new Notification('Tombala', { body: text, icon: 'img/icon.svg' });
   } catch {
     /* yoksay */
   }
