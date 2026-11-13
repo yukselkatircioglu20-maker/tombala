@@ -241,9 +241,10 @@ export function cardHTML(cardNo, grid, opts = {}) {
     if (done === 3) tag = `<span class="tag hot">TOMBALA!</span>`;
     else tag = `<span class="tag${left <= 3 ? ' hot' : ''}">${done ? `${done} çinko · ` : ''}${left} kaldı</span>`;
   }
-  return `<div class="tcard${opts.compact ? ' compact' : ''}${done === 3 ? ' won' : ''}" data-card="${cardNo}">
+  const cols = grid[0] ? grid[0].length : 9;
+  return `<div class="tcard c${cols}${opts.compact ? ' compact' : ''}${done === 3 ? ' won' : ''}" data-card="${cardNo}">
     <div class="tcard-head"><span>Kart No: <b>${cardNo}</b></span>${tag}</div>
-    <div class="tcard-grid">${rows}</div>
+    <div class="tcard-grid" style="--cols:${cols}">${rows}</div>
   </div>`;
 }
 

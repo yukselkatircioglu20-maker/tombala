@@ -1411,7 +1411,7 @@ select.input {
 }
 .tcard-grid {
   display: grid;
-  grid-template-columns: repeat(9, 1fr);
+  grid-template-columns: repeat(var(--cols, 9), 1fr);
   gap: 3px;
   padding: 6px;
 }
@@ -1457,6 +1457,18 @@ select.input {
 .tcard.compact .tcard-grid {
   gap: 2px;
   padding: 4px;
+}
+.tcard.c5 .tcell {
+  height: 44px;
+  font-size: 21px;
+}
+.tcard.c5.compact .tcell {
+  height: 34px;
+  font-size: 17px;
+}
+.tcard.c5 .tcard-grid {
+  gap: 5px;
+  padding: 8px;
 }
 .tcard.won {
   border-color: #4ade80;

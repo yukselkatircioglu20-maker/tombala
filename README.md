@@ -80,7 +80,7 @@ Ek olarak **Geçmiş** (`#/history`) ve **Profil** (`#/profile`).
    Aynı topta birden fazla kazanan varsa ödül paylaştırılır.
 7. Tombala çıkınca oyun biter; yönetici **Yeni Oyun** ile yeni satışı başlatır.
 
-Kartlar geleneksel düzendedir: 3 satır × 9 sütun, her satırda 5 sayı; sütunlar 1–9, 10–19 … 80–90.
+Kartlar 3 satır × 5 sütundur, boş hücre yoktur (15 sayı). Sütunlar 1–18, 19–36, 37–54, 55–72, 73–90; her sütunda 3 sayı yukarıdan aşağı artar. Çinko bir satırın (5 sayı), tombala kartın tamamının (15 sayı) çıkmasıdır.
 
 ## Havuz ve ödüller (Admin → Ayarlar)
 

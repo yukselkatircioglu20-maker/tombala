@@ -182,6 +182,15 @@ begin
   assert g ->> 'status' = 'waiting' and jsonb_array_length(g -> 'taken') = 0;
   r := public.tb_deck();
   assert jsonb_array_length(r -> 'cards') = 100;
+  -- kart düzeni: 3x5, boş hücre yok, 15 farklı sayı, sütun aralıkları doğru
+  assert not exists (
+    select 1 from jsonb_array_elements(r -> 'cards') card
+    where jsonb_array_length(card) <> 3
+       or exists (select 1 from jsonb_array_elements(card) row where jsonb_array_length(row) <> 5)
+       or (select count(distinct x::int) from jsonb_array_elements(card) row, jsonb_array_elements_text(row) x where x::int between 1 and 90) <> 15
+       or exists (select 1 from jsonb_array_elements(card) row, generate_series(0, 4) c
+                  where (row ->> c)::int not between c * 18 + 1 and c * 18 + 18)
+  ), 'kart düzeni hatalı';
 
   raise notice 'TÜM TESTLER GEÇTİ (kazanılan toplam ödül: %)', total;
 end $$;

@@ -331,67 +331,23 @@ begin
   where id = p_game;
 end $$;
 
--- Geleneksel tombala kartı: 3x9, her satırda 5 sayı, sütun aralıkları 1-9, 10-19 ... 80-90
+-- Tombala kartı: 3 satır x 5 sütun, boş hücre yok (15 sayı).
+-- Sütun aralıkları: 1-18, 19-36, 37-54, 55-72, 73-90; her sütunda 3 sayı, yukarıdan aşağı artan.
 create or replace function app.generate_card() returns jsonb language plpgsql volatile as $$
 declare
-  counts int[];
-  left_n int;
   c int;
-  r int;
   k int;
-  rowleft int[];
-  mask boolean[];
-  cells int[];
-  col_order int[];
-  rows_av int[];
-  rws int[];
   picked int[];
-  lo int;
-  hi int;
-  ok boolean;
+  cells int[] := array_fill(0, array[15]);
 begin
-  loop
-    counts := array[1, 1, 1, 1, 1, 1, 1, 1, 1];
-    left_n := 6;
-    while left_n > 0 loop
-      c := 1 + floor(random() * 9)::int;
-      if counts[c] < 3 then
-        counts[c] := counts[c] + 1;
-        left_n := left_n - 1;
-      end if;
-    end loop;
-    rowleft := array[5, 5, 5];
-    mask := array_fill(false, array[27]);
-    ok := true;
-    select array_agg(x order by counts[x] desc, random()) into col_order from generate_series(1, 9) x;
-    foreach c in array col_order loop
-      select array_agg(y order by rowleft[y] desc, random()) into rows_av
-        from generate_series(1, 3) y where rowleft[y] > 0;
-      if rows_av is null or cardinality(rows_av) < counts[c] then
-        ok := false;
-        exit;
-      end if;
-      for k in 1..counts[c] loop
-        r := rows_av[k];
-        mask[(r - 1) * 9 + c] := true;
-        rowleft[r] := rowleft[r] - 1;
-      end loop;
-    end loop;
-    exit when ok and rowleft = array[0, 0, 0];
-  end loop;
-
-  cells := array_fill(0, array[27]);
-  for c in 1..9 loop
-    lo := case when c = 1 then 1 else (c - 1) * 10 end;
-    hi := case when c = 1 then 9 when c = 9 then 90 else (c - 1) * 10 + 9 end;
-    select array_agg(y order by y) into rws from generate_series(1, 3) y where mask[(y - 1) * 9 + c];
+  for c in 1..5 loop
     select array_agg(v order by v) into picked
-      from (select v from generate_series(lo, hi) v order by random() limit cardinality(rws)) t;
-    for k in 1..cardinality(rws) loop
-      cells[(rws[k] - 1) * 9 + c] := picked[k];
+      from (select v from generate_series((c - 1) * 18 + 1, c * 18) v order by random() limit 3) t;
+    for k in 1..3 loop
+      cells[(k - 1) * 5 + c] := picked[k];
     end loop;
   end loop;
-  return jsonb_build_array(to_jsonb(cells[1:9]), to_jsonb(cells[10:18]), to_jsonb(cells[19:27]));
+  return jsonb_build_array(to_jsonb(cells[1:5]), to_jsonb(cells[6:10]), to_jsonb(cells[11:15]));
 end $$;
 
 create or replace function app.row_nums(grid jsonb, i int) returns int[] language sql immutable as $$
@@ -1294,6 +1250,31 @@ begin
      and not exists (select 1 from pg_publication_tables
                      where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'games') then
     alter publication supabase_realtime add table public.games;
+  end if;
+end $$;
+
+-- Bekleyen oyunun kartları eski (boşluklu 3x9) düzendeyse yeni düzene çevir.
+-- Kart numaraları ve alınmış kartlar aynı kalır; yalnızca kartların üzerindeki sayılar yenilenir.
+do $$
+declare
+  g public.games;
+  v_grid jsonb;
+  v_seen text[] := '{}';
+  n int;
+begin
+  select * into g from public.games order by id desc limit 1;
+  if g.id is not null and g.status = 'waiting'
+     and exists (select 1 from app.game_cards where game_id = g.id and jsonb_array_length(grid -> 0) <> 5) then
+    for n in 1..100 loop
+      loop
+        v_grid := app.generate_card();
+        exit when not (v_grid::text = any (v_seen));
+      end loop;
+      v_seen := v_seen || v_grid::text;
+      update app.game_cards
+        set grid = v_grid, r1 = app.row_nums(v_grid, 0), r2 = app.row_nums(v_grid, 1), r3 = app.row_nums(v_grid, 2)
+      where game_id = g.id and card_no = n;
+    end loop;
   end if;
 end $$;
 
