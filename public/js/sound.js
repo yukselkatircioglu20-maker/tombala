@@ -63,6 +63,9 @@ export const sound = {
     if (prefs.music) this.startMusic();
     else this.stopMusic();
   },
+  isUnlocked() {
+    return !!ctx && ctx.state === 'running';
+  },
   unlock() {
     ac();
     if (prefs.music && !musicTimer) this.startMusic();

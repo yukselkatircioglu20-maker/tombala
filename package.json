@@ -1,12 +1,10 @@
 {
   "name": "tombala",
   "version": "1.0.0",
-  "description": "Web tabanlı, gerçek zamanlı Tombala oyunu",
-  "main": "server/index.js",
+  "description": "Supabase + Cloudflare Pages üzerinde çalışan gerçek zamanlı Tombala oyunu",
   "scripts": {
-    "start": "node server/index.js",
-    "dev": "node --watch server/index.js",
-    "test": "node --test"
+    "start": "node scripts/serve.js",
+    "test:sql": "psql -v ON_ERROR_STOP=1 -f supabase/schema.sql -f supabase/test.sql"
   },
   "repository": {
     "type": "git",
@@ -18,12 +16,5 @@
     "url": "https://github.com/yukselkatircioglu20-maker/tombala/issues"
   },
   "homepage": "https://github.com/yukselkatircioglu20-maker/tombala#readme",
-  "dependencies": {
-    "express": "^4.22.3",
-    "socket.io": "^4.8.4"
-  },
-  "engines": {
-    "node": ">=18"
-  },
   "private": true
 }

@@ -1,111 +1,125 @@
 # Tombala — Şansın en güzel hali
 
-Web tabanlı, gerçek zamanlı (çok oyunculu) Tombala oyunu. Koyu lacivert & altın temalı, mobil öncelikli arayüz;
-Node.js + Express + Socket.IO sunucusu. Harici veritabanı gerektirmez (veriler `data/db.json` dosyasında tutulur).
+Gerçek zamanlı, çok oyunculu web tabanlı Tombala oyunu. Koyu lacivert & altın temalı, mobil öncelikli arayüz.
 
-## Hızlı başlangıç
+- **Veritabanı, giriş, canlı yayın ve otomatik çekiliş:** [Supabase](https://supabase.com) (PostgreSQL + Realtime + pg_cron)
+- **Site barındırma:** [Cloudflare Pages](https://pages.cloudflare.com) (statik site, derleme gerekmez)
+- Ayrı bir sunucu yoktur; bilgisayarınızın açık kalması gerekmez.
 
-```bash
-npm install
-npm start          # http://localhost:3000
+## Kurulum
+
+### 1. Supabase projesi
+
+1. supabase.com → **New project** (Region: Europe).
+2. Proje açılınca **SQL Editor → New query**: `supabase/schema.sql` dosyasının **tamamını** yapıştırıp **Run**.
+   - "Success" görmelisiniz. Dosya tekrar çalıştırılabilir; güncellemelerde yeniden çalıştırmak verileri silmez.
+3. **Project Settings → API** (veya **API Keys**) sayfasından **Project URL** ve **anon / publishable** anahtarını alın.
+   **`service_role` / `secret` anahtarını asla siteye koymayın.**
+
+### 2. Site ayarı
+
+`public/js/config.js` dosyasına bu iki bilgiyi yazın:
+
+```js
+export const SUPABASE_URL = 'https://xxxxxxxx.supabase.co';
+export const SUPABASE_KEY = 'eyJ... veya sb_publishable_...';
 ```
 
-> **İlk kayıt olan kullanıcı otomatik olarak yönetici (admin) olur.**
-> İsterseniz `ADMIN_USERNAME` ve `ADMIN_PASSWORD` ortam değişkenleriyle başlangıçta bir yönetici hesabı da oluşturabilirsiniz.
+### 3. Cloudflare Pages
 
-Geliştirme için `npm run dev` (dosya değişince yeniden başlar), testler için `npm test`.
+1. dash.cloudflare.com → **Workers & Pages → Create → Pages → Connect to Git**, GitHub'daki `tombala` reposunu seçin.
+2. Ayarlar:
+   - **Framework preset:** None
+   - **Build command:** _(boş bırakın)_
+   - **Build output directory:** `public`
+3. **Save and Deploy** → `https://tombala.pages.dev` benzeri bir link alırsınız.
+   GitHub'a her gönderimde site otomatik güncellenir.
+
+### 4. İlk giriş
+
+Siteyi açıp hemen **kayıt olun**: **ilk kayıt olan kullanıcı yönetici (admin) olur.**
+Başka birini yönetici yapmak için Admin Paneli → Kullanıcılar → **Yönetici Yap**.
 
 ## Ekranlar
 
 | # | Ekran | Rota |
 |---|-------|------|
 | 1 | Açılış (Başlayın) | `#/splash` |
-| 2 | Hoş Geldiniz | `#/welcome` |
+| 2 | Hoş Geldiniz (+ giriş yapmadan **Canlı Çekilişi İzle**) | `#/welcome` |
 | 3 | Kayıt Ol | `#/register` |
 | 4 | Giriş Yap (Beni Hatırla, Şifremi Unuttum) | `#/login` |
 | 5 | Ana Sayfa (bakiye, bildirimler, oyun durumu, havuz) | `#/home` |
 | 6 | Kart Seçimi (1–100, önizleme, rastgele seç) | `#/select` |
 | 7 | Seçiminiz Onaylanıyor… | `#/request/:id` |
-| 8 | Admin Bildirimi (Onayla / Reddet açılır penceresi) | admin için otomatik |
+| 8 | Admin Bildirimi (Onayla / Reddet) | yöneticiye otomatik |
 | 9 | Ödemeniz Bekleniyor… (bakiyeden öde / havale bilgisi) | `#/request/:id` |
 | 10 | Kartlarım | `#/cards` |
-| 11 | Canlı Oyun (küre, son 10 taş, sayaç, havuz) | `#/game` |
+| 11 | Canlı Oyun — **giriş yapmadan da izlenebilir** | `#/game`, `#/izle` |
 | 12 | KAZANDIN! | kazanınca otomatik |
 | 13 | Kazananlar (Bu Hafta / Bu Ay / Tüm Zamanlar) | `#/winners` |
 | 14 | Admin Paneli (Oyun Yönetimi, Kullanıcılar, Ödemeler, Ayarlar) | `#/admin` |
 | 15 | Ayarlar (Bildirimler, Ses, Müzik, Sesli Okuma, Tema) | `#/settings` |
 | 16 | Veda ekranı (çıkışta) | `#/bye` |
 
-Ek olarak: **Geçmiş** (`#/history`) ve **Profil** (`#/profile`) ekranları.
+Ek olarak **Geçmiş** (`#/history`) ve **Profil** (`#/profile`).
+İzleyicilere doğrudan `https://siteniz.pages.dev/#/izle` linkini gönderebilirsiniz.
 
 ## Oyun akışı
 
-1. Oyuncu kayıt olur / giriş yapar, **Kart Satın Al** ile 1–100 arasından kart seçer.
-2. Talep yöneticiye anlık bildirim olarak düşer → **Onayla / Reddet**.
-3. Onaylanan talep için oyuncu **bakiyesinden öder** ya da havale/EFT yapar ve yönetici **Ödeme Alındı** der.
+1. Oyuncu kayıt olur, **Kart Satın Al** ile 1–100 arasından kart seçer.
+2. Talep yöneticinin ekranına bildirim olarak düşer → **Onayla / Reddet**.
+3. Oyuncu **bakiyesinden öder** ya da havale/EFT yapar ve yönetici **Ödeme Alındı** der.
 4. Yönetici **Oyun Başlat**'a basar (veya planlanan saatte otomatik başlar). Açık kalan talepler iptal edilir.
-5. Sunucu belirlenen aralıkla top çeker; kartlar otomatik işaretlenir, sayılar istenirse sesli okunur.
-6. **1. Çinko** (bir satır), **2. Çinko** (iki satır) ve **Tombala** (tüm kart) sunucu tarafından otomatik tespit edilir,
-   ödül kazananların bakiyesine eklenir. Aynı topta birden fazla kazanan varsa ödül paylaştırılır.
+5. Supabase her saniye kontrol eder ve belirlenen aralıkla top çeker; kartlar otomatik işaretlenir.
+6. **1. Çinko**, **2. Çinko** ve **Tombala** veritabanında otomatik tespit edilir, ödül kazananın bakiyesine eklenir.
+   Aynı topta birden fazla kazanan varsa ödül paylaştırılır.
 7. Tombala çıkınca oyun biter; yönetici **Yeni Oyun** ile yeni satışı başlatır.
 
-### Kartlar
+Kartlar geleneksel düzendedir: 3 satır × 9 sütun, her satırda 5 sayı; sütunlar 1–9, 10–19 … 80–90.
 
-Geleneksel tombala kartı: 3 satır × 9 sütun, her satırda 5 sayı (toplam 15). 1. sütun 1–9, 2. sütun 10–19 … 9. sütun 80–90.
-Her oyun için 100 benzersiz kart üretilir.
+## Havuz ve ödüller (Admin → Ayarlar)
 
-### Havuz ve ödüller (Admin → Ayarlar)
-
-- **Satışlardan (%)**: havuz = satılan kart geliri × oran (varsayılan %80)
-- **Sabit Tutar**: yöneticinin belirlediği sabit havuz
-- Dağılım varsayılanı: 1. Çinko %20 · 2. Çinko %30 · Tombala %50 (toplam %100 olmalı)
-- Kart bedeli, çekiliş aralığı, talep başına maksimum kart, otomatik onay ve ödeme bilgileri de buradan ayarlanır.
+- **Satışlardan (%)**: havuz = satılan kart geliri × oran (varsayılan %80) · **Sabit Tutar**: sabit havuz
+- Dağılım varsayılanı: 1. Çinko %20 · 2. Çinko %30 · Tombala %50
+- Kart bedeli, çekiliş aralığı, talep başına maksimum kart, otomatik onay ve ödeme (IBAN) bilgileri de buradan.
 - Havuz ve oranlar oyun başladığı anda sabitlenir.
 
-## Yönetici işlemleri
+## Mimari ve güvenlik
 
-- Oyun başlat / durdur (duraklat) / devam et, elle top çek, oyunu iptal et (ödenen kart bedelleri bakiyeye iade edilir), yeni oyun
-- Çekiliş saati planlama
-- Kart taleplerini onaylama, reddetme (sebep ile), ödemeyi onaylama
-- Kullanıcılara bakiye ekleme/düşme, yönetici yapma, engelleme, geçici şifre oluşturma
+```
+public/               Cloudflare Pages'e yüklenen statik site
+  js/config.js        Supabase URL + anon anahtarı
+  js/backend.js       Supabase RPC, Realtime aboneliği ve yedek yoklama
+  js/app.js           Tüm ekranlar
+  js/ui.js, sound.js  Arayüz parçaları, ses efektleri, sesli okuma
+  vendor/supabase.js  supabase-js 2.118.0
+supabase/
+  schema.sql          Tüm veritabanı kurulumu (tek dosya)
+  test.sql            Uçtan uca SQL testleri
+scripts/serve.js      Yerel önizleme sunucusu (npm start)
+```
 
-## Ortam değişkenleri
+- Kullanıcılar, şifreler (bcrypt), oturumlar, talepler ve bakiyeler gizli `app` şemasındadır; API'den doğrudan erişilemez.
+- Site yalnızca `public.tb_*` fonksiyonlarını çağırabilir; her fonksiyon oturumu ve yetkiyi kendisi denetler.
+- Herkese açık tek tablo `public.games`'tir (yalnızca okunur) ve Realtime ile canlı yayınlanır.
+- Otomatik çekiliş `pg_cron` ile her saniye çalışır. Herhangi bir sebeple çalışmazsa, oyunu izleyen tarayıcılar
+  zamanı gelen topu yedek olarak tetikler.
 
-| Değişken | Varsayılan | Açıklama |
-|----------|-----------|----------|
-| `PORT` | `3000` | Sunucu portu |
-| `DATA_DIR` | `./data` | Veri dosyasının klasörü |
-| `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `ADMIN_NAME` | – | Başlangıçta yönetici hesabı oluşturur |
-| `COOKIE_SECURE` | – | `1` ise oturum çerezi yalnızca HTTPS'te gönderilir (canlı ortamda önerilir) |
-| `TRUST_PROXY` | – | Ters vekil (nginx vb.) arkasında `1` yapın |
-| `TZ_OFFSET_MIN` | `180` | "Bu Hafta / Bu Ay" hesaplaması için saat dilimi (Türkiye: UTC+3) |
+## Sık karşılaşılanlar
 
-## Docker
+- **"Supabase bağlantısı yapılandırılmamış"** → `public/js/config.js` boş.
+- **"Veritabanı kurulmamış"** → `supabase/schema.sql` SQL Editor'de çalıştırılmamış.
+- **Ücretsiz Supabase projesi 1 hafta kullanılmazsa duraklatılır** → Supabase panelinden **Restore** ile tekrar açılır.
+- Şifresini unutan kullanıcıya yönetici, Admin Paneli → Kullanıcılar → **Şifre Sıfırla** ile geçici şifre verir.
+
+## Geliştirme
 
 ```bash
-docker build -t tombala .
-docker run -p 3000:3000 -v tombala-data:/app/data tombala
-```
-
-## Proje yapısı
-
-```
-server/
-  index.js    Express + Socket.IO sunucusu
-  routes.js   REST API (kimlik doğrulama, oyun, talepler, admin)
-  game.js     Oyun motoru: durumlar, çekiliş, ödül tespiti, talepler
-  cards.js    Tombala kartı üretimi
-  auth.js     Şifre (scrypt), oturum çerezleri
-  db.js       JSON dosya deposu
-public/
-  index.html, css/style.css
-  js/app.js   Tüm ekranlar ve yönlendirme
-  js/ui.js    İkonlar, toplar, kartlar, modal, bildirimler
-  js/sound.js Web Audio ses efektleri, müzik, sesli okuma
-test/         node:test testleri
+npm start                      # http://localhost:8080 (statik önizleme; config.js'teki Supabase'e bağlanır)
+psql "<veritabanı bağlantı adresi>" -f supabase/schema.sql -f supabase/test.sql   # SQL testleri (geri alınır)
 ```
 
 ## Not
 
-Uygulama ödemeleri kendisi tahsil etmez; bakiye ve ödeme onayları yönetici tarafından elle yönetilir.
+Uygulama ödemeleri kendisi tahsil etmez; bakiye ve ödeme onayları yönetici tarafından yönetilir.
 Gerçek parayla oynatılacaksa yürürlükteki şans oyunları mevzuatına uyulması gerekir.

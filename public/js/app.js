@@ -1,4 +1,4 @@
-import { api } from './api.js';
+import { api, live, isConfigured } from './backend.js';
 import { sound } from './sound.js';
 import {
   icon,
@@ -115,17 +115,8 @@ function storeSet(k, v) {
 // Gerçek zamanlı bağlantı
 // =========================================================
 
-let socket = null;
-
-function connectSocket() {
-  if (socket) {
-    socket.removeAllListeners();
-    socket.disconnect();
-  }
-  if (typeof window.io !== 'function') return;
-  socket = window.io({ forceNew: true });
-
-  socket.on('game:state', (s) => {
+function setupLive() {
+  live.on('game:state', (s) => {
     const prevId = state.game && state.game.id;
     state.game = s;
     state.gameRecvAt = Date.now();
@@ -133,21 +124,21 @@ function connectSocket() {
     bus.emit('game', s);
     if (prevId && prevId !== s.id) bus.emit('newgame', s);
   });
-  socket.on('game:draw', ({ number }) => bus.emit('draw', number));
-  socket.on('game:winner', onWinner);
-  socket.on('game:started', () => {
+  live.on('game:draw', ({ number }) => bus.emit('draw', number));
+  live.on('game:winner', onWinner);
+  live.on('game:started', () => {
     if (!state.user) return;
     if (state.route !== 'game')
       toast('Çekiliş başladı!', 'game', { action: { label: 'Canlı İzle', onClick: () => go('game') }, duration: 7000 });
   });
-  socket.on('game:new', () => {
+  live.on('game:new', () => {
     if (state.user && state.settings.notifications)
       toast('Yeni oyun için kart satışı başladı!', 'game', {
         action: { label: 'Kart Al', onClick: () => go('select') },
         duration: 6000,
       });
   });
-  socket.on('notify', (n) => {
+  live.on('notify', (n) => {
     state.unread++;
     updateBadges();
     if (n.type === 'win') return; // kazanç ekranı ayrıca gösterilir
@@ -157,20 +148,35 @@ function connectSocket() {
       systemNotify(n.text);
     }
   });
-  socket.on('balance', ({ balance }) => {
+  live.on('unread', (n) => {
+    if (!state.user || state.unread === n) return;
+    state.unread = n;
+    updateBadges();
+  });
+  live.on('balance', ({ balance }) => {
     if (!state.user) return;
     state.user.balance = balance;
     updateBalances();
     bus.emit('user', state.user);
   });
-  socket.on('purchase:update', (p) => bus.emit('purchase', p));
-  socket.on('admin:request', (p) => {
+  live.on('purchase:update', (p) => bus.emit('purchase', p));
+  live.on('admin:request', (p) => {
+    if (adminQueue.some((x) => x.id === p.id)) return;
     adminQueue.push(p);
     sound.notify();
     showNextAdminRequest();
     bus.emit('admin');
   });
-  socket.on('admin:refresh', () => bus.emit('admin'));
+  live.on('admin:refresh', () => bus.emit('admin'));
+  live.on('auth:lost', () => {
+    if (!state.user) return;
+    state.user = null;
+    state.unread = 0;
+    myCardsCache = null;
+    toast('Oturumunuz sona erdi, lütfen tekrar giriş yapın.', 'error');
+    go('login');
+  });
+  live.start();
 }
 
 function systemNotify(text) {
@@ -190,7 +196,7 @@ function onWinner(e) {
     const total = me.reduce((s, w) => s + w.amount, 0);
     setTimeout(() => showWin({ prize: e.prize, label: e.label, amount: total, cards: me.map((w) => w.cardNo) }), 1300);
     systemNotify(`Tebrikler! ${e.label} yaptınız: ${fmtTL(total)}`);
-  } else if (state.user && state.settings.notifications) {
+  } else if (state.settings.notifications) {
     const names = [...new Set(e.winners.map((w) => w.name))].join(', ');
     setTimeout(() => {
       toast(`${names} ${e.label} yaptı! (${fmtTL(e.winners[0].amount)})`, 'win', { duration: 5500 });
@@ -216,7 +222,8 @@ const routes = {
   select: { render: screenSelect },
   request: { render: screenRequest },
   cards: { render: screenCards, nav: 'home' },
-  game: { render: screenGame },
+  game: { render: screenGame, public: true, any: true },
+  izle: { render: screenGame, public: true, any: true },
   history: { render: screenHistory, nav: 'history' },
   winners: { render: screenWinners, nav: 'winners' },
   profile: { render: screenProfile, nav: 'profile' },
@@ -233,6 +240,7 @@ function go(path) {
 let cleanupFns = [];
 
 function render() {
+  if (!isConfigured) return screenSetup();
   const parts = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean);
   let name = parts[0] || '';
   const params = parts.slice(1);
@@ -381,7 +389,7 @@ async function run(fn, btn) {
   } catch (err) {
     if (err.status === 401 && state.user) {
       state.user = null;
-      connectSocket();
+      live.resetUser();
       toast('Oturumunuz sona erdi, lütfen tekrar giriş yapın.', 'error');
       go('login');
       return undefined;
@@ -562,6 +570,21 @@ function showWin({ prize, label, amount, cards }) {
 // EKRANLAR
 // =========================================================
 
+// ---------- Kurulum uyarısı ----------
+function screenSetup() {
+  nav.hidden = true;
+  mount(`<section class="screen no-nav center" style="gap:18px">
+    ${crownSVG(90)}
+    <h1 class="logo" style="font-size:44px">TOMBALA</h1>
+    <div class="panel pad stack" style="text-align:left">
+      <b style="font-size:18px">Supabase bağlantısı yapılandırılmamış</b>
+      <p class="muted small">Site sahibiyseniz <code>public/js/config.js</code> dosyasına Supabase projenizin
+      <b>Project URL</b> ve <b>anon / publishable</b> anahtarını yazın, ardından
+      <code>supabase/schema.sql</code> dosyasını Supabase SQL Editor'de çalıştırın.</p>
+    </div>
+  </section>`);
+}
+
 // ---------- 1/16 Açılış ----------
 function decoCard(cls, style) {
   const nums = [4, 17, 23, 41, 56, 7, 19, 28, 44, 60, 9, 21, 32, 47, 62, 11, 25, 36, 49, 65];
@@ -612,6 +635,7 @@ function screenWelcome() {
       <button class="panel choice" data-go="register">${icon('userPlus')}<b>Kayıt Ol</b><span>Hemen üye olun</span></button>
       <button class="panel choice" data-go="login">${icon('login')}<b>Giriş Yap</b><span>Zaten üye misiniz?</span></button>
     </div>
+    <button class="btn btn-ghost btn-block" data-go="izle" style="margin-top:4px">${icon('tv')}Canlı Çekilişi İzle</button>
     <div class="features" style="margin-top:18px">
       <span>${icon('shield')}Güvenli Oyun</span>
       <span>${icon('bolt')}Hızlı İşlem</span>
@@ -639,7 +663,7 @@ async function afterAuth(user, msg) {
     state.unread = me.unread || 0;
   }
   myCardsCache = null;
-  connectSocket();
+  live.resetUser();
   toast(msg, 'success');
   go('home');
   if (state.user.role === 'admin') loadPendingForAdmin();
@@ -1218,8 +1242,11 @@ function screenGame(ctx) {
 
   const scr = mount(`<section class="screen no-nav">
     <div class="row between">
-      <button class="back-btn" data-back="home" aria-label="Geri">${icon('back')}</button>
-      <div class="row small"><span class="muted" data-gameid></span><span data-pill></span></div>
+      <button class="back-btn" data-back="${state.user ? 'home' : 'welcome'}" aria-label="Geri">${icon('back')}</button>
+      <div class="row small">
+        <button class="btn btn-ghost btn-xs" data-sound hidden>${icon('volume')}Sesi Aç</button>
+        <span class="muted" data-gameid></span><span data-pill></span>
+      </div>
     </div>
     <div class="game-top">
       <span class="pill-box">${icon('clock')}<span data-timer>00:00:00</span></span>
@@ -1238,7 +1265,7 @@ function screenGame(ctx) {
     <div class="row between small muted"><span data-next></span><span data-players></span></div>
     <div class="panel pad"><div class="section-title">Son 10 Taş</div><div class="last-balls" data-last></div></div>
     <div class="prize-row" data-prizes></div>
-    <div class="section-title" style="margin:6px 0 -4px">Kartlarım <a class="link" href="#/cards">Tümü</a></div>
+    <div class="section-title" style="margin:6px 0 -4px">${state.user ? 'Kartlarım <a class="link" href="#/cards">Tümü</a>' : 'Oyuna Katıl'}</div>
     <div class="cards-list" data-cards>${dotsSpinner()}</div>
     <div class="panel pad"><div class="section-title">Çekilen Sayılar</div><div class="board" data-board></div></div>
   </section>`);
@@ -1295,6 +1322,14 @@ function screenGame(ctx) {
 
   const paintCards = (set, last) => {
     const box = $('[data-cards]', scr);
+    if (!state.user) {
+      box.innerHTML = `<div class="panel pad stack center-text">
+        <b>Sen de oynamak ister misin?</b>
+        <span class="small muted">Kayıt ol, kartını seç ve bir sonraki çekilişe katıl.</span>
+        <div class="row"><button class="btn btn-gold btn-sm grow" data-go="register">Kayıt Ol</button>
+        <button class="btn btn-ghost btn-sm grow" data-go="login">Giriş Yap</button></div></div>`;
+      return;
+    }
     if (!mine) return;
     const g = state.game;
     if (!mine.cards.length || !g || mine.gameId !== g.id) {
@@ -1368,6 +1403,18 @@ function screenGame(ctx) {
     if (!scr.isConnected) return;
     paintDrawn(false);
   };
+
+  const soundBtn = $('[data-sound]', scr);
+  const syncSound = () => {
+    soundBtn.hidden = sound.isUnlocked() || (!state.settings.sfx && !state.settings.speech);
+  };
+  soundBtn.addEventListener('click', () => {
+    sound.unlock();
+    sound.speak('Ses açık');
+    setTimeout(syncSound, 300);
+  });
+  syncSound();
+  ctx.every(syncSound, 2000);
 
   paintStatic();
   paintDrawn(false);
@@ -1573,7 +1620,7 @@ async function logout() {
   state.user = null;
   state.unread = 0;
   myCardsCache = null;
-  connectSocket();
+  live.resetUser();
   go('bye');
 }
 
@@ -2052,7 +2099,11 @@ async function init() {
   } catch {
     state.user = null;
   }
-  connectSocket();
+  if (!isConfigured) {
+    render();
+    return;
+  }
+  setupLive();
   try {
     const g = await api.get('/game');
     state.game = g;
