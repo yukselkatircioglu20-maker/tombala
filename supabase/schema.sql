@@ -1110,6 +1110,22 @@ begin
       approved_at = coalesce(approved_at, now()) where id = p.id returning * into p;
     perform app.notify(p.user_id, format('Ödemeniz alındı! %s kartınız oyuna hazır: %s',
       cardinality(p.cards), array_to_string(p.cards, ', ')), 'success', p.id);
+  elsif p_action = 'cancel' then
+    -- Onaylanmış (ödenmiş) talebi oyun başlamadan iptal et; kartlar tekrar satışa açılır
+    if p.status not in ('paid', 'pending', 'awaiting_payment') then raise exception 'Bu talep iptal edilemez.'; end if;
+    if p.status = 'paid' and (p.game_id <> g.id or g.status <> 'waiting') then
+      raise exception 'Oyun başladıktan sonra onaylanmış kart iptal edilemez. Gerekirse oyunu iptal edin.';
+    end if;
+    if p.status = 'paid' and p.paid_via = 'balance' then
+      update app.users set balance = balance + p.total where id = p.user_id;
+      update app.purchases set refunded = true where id = p.id;
+    end if;
+    update app.purchases set status = 'cancelled', closed_at = now(),
+      reason = coalesce(nullif(left(btrim(coalesce(p_reason, '')), 200), ''), 'Yönetici tarafından iptal edildi.')
+    where id = p.id returning * into p;
+    perform app.notify(p.user_id, format('%s numaralı kart%s yönetici tarafından iptal edildi.%s',
+      array_to_string(p.cards, ', '), case when cardinality(p.cards) > 1 then 'lar' else '' end,
+      case when p.refunded then format(' %s bakiyenize iade edildi.', app.fmt_tl(p.total)) else '' end), 'error', p.id);
   else
     raise exception 'Geçersiz işlem.';
   end if;

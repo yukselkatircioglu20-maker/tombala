@@ -1871,7 +1871,11 @@ function screenAdmin(ctx) {
                 ? `<div class="req-actions">
                   <button class="btn btn-green btn-xs" data-a="confirm" data-id="${p.id}">${icon('check')}Onayla (Ödeme Alındı)</button>
                   <button class="btn btn-red btn-xs" data-a="reject" data-id="${p.id}">${icon('x')}Reddet</button></div>`
-                : ''
+                : p.status === 'paid' && state.game && p.gameId === state.game.id && state.game.status === 'waiting'
+                  ? `<div class="req-actions"><button class="btn btn-ghost btn-xs" data-a="cancel" data-id="${p.id}" data-cards="${esc(
+                      p.cards.join(', ')
+                    )}" data-name="${esc(p.name)}">${icon('ban')}Onayı İptal Et</button></div>`
+                  : ''
             }
           </div>`
               )
@@ -1892,6 +1896,17 @@ function screenAdmin(ctx) {
           if (!v) return;
           payload = v;
         }
+        if (a === 'cancel') {
+          const v = await formModal({
+            title: 'Onayı İptal Et',
+            iconName: 'ban',
+            note: `${esc(b.dataset.name)} kullanıcısının <b>${esc(b.dataset.cards)}</b> numaralı kartları iptal edilecek ve tekrar satışa açılacak. Nakit aldıysan parayı elden iade etmeyi unutma.`,
+            fields: [{ name: 'reason', label: 'Sebep (isteğe bağlı)' }],
+            submitLabel: 'İptal Et',
+          });
+          if (!v) return;
+          payload = v;
+        }
         if (a === 'confirm') {
           const ok = await confirmModal('Talebi Onayla', 'Ödemeyi aldığını onaylıyor musun? Kartlar oyuncu için hemen aktif olacak.', {
             okLabel: 'Onayla',
@@ -1902,7 +1917,7 @@ function screenAdmin(ctx) {
         }
         const r = await run(() => api.post(`/admin/purchases/${b.dataset.id}/${a}`, payload), b);
         if (r) {
-          toast({ confirm: 'Onaylandı, kartlar aktif.', reject: 'Talep reddedildi.' }[a], 'success');
+          toast({ confirm: 'Onaylandı, kartlar aktif.', reject: 'Talep reddedildi.', cancel: 'Onay iptal edildi, kartlar tekrar satışta.' }[a], 'success');
           renderPayments();
         }
       });

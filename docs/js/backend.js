@@ -191,7 +191,7 @@ const ROUTES = [
   ['GET', /^\/admin\/purchases(?:\?status=(\w*))?$/, (m) => rpc('tb_admin_purchases', { p_token: T(), p_status: m[1] || '' })],
   [
     'POST',
-    /^\/admin\/purchases\/(\d+)\/(approve|reject|confirm)$/,
+    /^\/admin\/purchases\/(\d+)\/(approve|reject|confirm|cancel)$/,
     (m, b) =>
       rpc('tb_admin_purchase_action', { p_token: T(), p_id: Number(m[1]), p_action: m[2], p_reason: (b && b.reason) || null }),
   ],

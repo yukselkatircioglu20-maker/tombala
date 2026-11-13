@@ -48,10 +48,8 @@ begin
 
   -- yeni temiz oyun
   g := public.tb_state();
-  if g ->> 'status' <> 'waiting' then
-    if g ->> 'status' in ('running', 'paused') then perform public.tb_admin_game(ta, 'cancel'); end if;
-    perform public.tb_admin_game(ta, 'new');
-  end if;
+  if g ->> 'status' in ('waiting', 'running', 'paused') then perform public.tb_admin_game(ta, 'cancel'); end if;
+  perform public.tb_admin_game(ta, 'new');
 
   r := public.tb_request_cards(tu, array[1, 2, 3]);
   p1 := (r -> 'purchase' ->> 'id')::bigint;
@@ -92,6 +90,18 @@ begin
   r := public.tb_admin_purchase_action(ta, p2, 'confirm');
   assert r -> 'purchase' ->> 'status' = 'paid';
 
+  -- onaylanmış talebi iptal et: kartlar tekrar satışa açılır
+  r := public.tb_request_cards(ty, array[77, 78]);
+  p3 := (r -> 'purchase' ->> 'id')::bigint;
+  perform public.tb_admin_purchase_action(ta, p3, 'confirm');
+  assert (public.tb_state() -> 'taken') @> '[77,78]'::jsonb;
+  r := public.tb_admin_purchase_action(ta, p3, 'cancel');
+  assert r -> 'purchase' ->> 'status' = 'cancelled', 'onaylı talep iptal edildi';
+  assert not ((public.tb_state() -> 'taken') @> '[77]'::jsonb), 'iptal edilen kart tekrar müsait';
+  assert (public.tb_state() ->> 'soldCount')::int = 5, 'satılan kart sayısı düştü';
+  r := public.tb_request_cards(tu, array[77]);
+  perform public.tb_cancel_purchase(tu, (r -> 'purchase' ->> 'id')::bigint);
+
   r := public.tb_request_cards(ty, array[50]);
   p3 := (r -> 'purchase' ->> 'id')::bigint;
 
@@ -106,6 +116,13 @@ begin
     raise exception 'beklenmedik başarı';
   exception when others then
     assert sqlerrm like '%satışı şu an kapalı%', sqlerrm;
+  end;
+
+  begin
+    perform public.tb_admin_purchase_action(ta, p1, 'cancel');
+    raise exception 'beklenmedik başarı';
+  exception when others then
+    assert sqlerrm like '%Oyun başladıktan sonra%', sqlerrm;
   end;
 
   -- kartlarım
