@@ -1,5 +1,5 @@
-import { api, live, isConfigured } from './backend.js';
-import { sound } from './sound.js';
+import { api, live, isConfigured } from './backend.js?v=8';
+import { sound } from './sound.js?v=8';
 import {
   icon,
   crownSVG,
@@ -26,7 +26,7 @@ import {
   modal,
   confirmModal,
   formModal,
-} from './ui.js';
+} from './ui.js?v=8';
 
 // =========================================================
 // Durum & olay yolu

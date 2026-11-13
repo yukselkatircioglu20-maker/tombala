@@ -4,7 +4,8 @@
   "description": "Supabase + Cloudflare Pages üzerinde çalışan gerçek zamanlı Tombala oyunu",
   "scripts": {
     "start": "node scripts/serve.js",
-    "test:sql": "psql -v ON_ERROR_STOP=1 -f supabase/schema.sql -f supabase/test.sql"
+    "test:sql": "psql -v ON_ERROR_STOP=1 -f supabase/schema.sql -f supabase/test.sql",
+    "bump": "node scripts/bump-version.js"
   },
   "repository": {
     "type": "git",
