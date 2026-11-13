@@ -503,6 +503,7 @@ function showNextAdminRequest() {
         .join('')}</div>
       Toplam Tutar: <b class="gold">${fmtTL(p.total)}</b></div>
     </div>
+    <p class="center-text muted small" style="margin-top:10px">Onayladığında ödemenin alındığı kabul edilir ve kartlar hemen aktif olur.</p>
     ${adminQueue.length ? `<p class="center-text muted small" style="margin-top:10px">+${adminQueue.length} talep daha bekliyor</p>` : ''}`,
     actions: [
       {
@@ -510,8 +511,8 @@ function showNextAdminRequest() {
         cls: 'btn-green',
         icon: 'check',
         onClick: async () => {
-          const r = await run(() => api.post(`/admin/purchases/${p.id}/approve`));
-          if (r) toast(`${p.name} adlı kullanıcının talebi onaylandı.`, 'success');
+          const r = await run(() => api.post(`/admin/purchases/${p.id}/confirm`));
+          if (r) toast(`${p.name} adlı kullanıcının ${p.cards.length} kartı aktif edildi.`, 'success');
         },
       },
       {
@@ -1070,7 +1071,12 @@ function screenRequest(ctx) {
           ${chips(p)}
           <div class="row between"><span class="muted">Toplam Tutar</span><b class="gold">${fmtTL(p.total)}</b></div>
         </div>
-        <p class="small muted">Talebiniz yöneticiye iletildi. Onaylandığında bu ekran otomatik olarak güncellenecek.</p>
+        ${
+          data.paymentInfo
+            ? `<div class="panel pad pay-box"><b>Ödeme</b><pre>${esc(data.paymentInfo)}</pre></div>`
+            : ''
+        }
+        <p class="small muted">Ödemeni yöneticiye yap. Yönetici onayladığında kartların hemen aktif olur ve bu ekran kendiliğinden güncellenir.</p>
         ${cancelBtn}`;
     } else if (p.status === 'awaiting_payment') {
       wasOpen = true;
@@ -1858,13 +1864,12 @@ function screenAdmin(ctx) {
             <div class="row between"><div class="card-chips" style="justify-content:flex-start">${p.cards
               .map((c) => `<span class="card-chip">${c}</span>`)
               .join('')}</div><b class="gold nowrap" style="font-size:17px">${fmtTL(p.total)}</b></div>
-            ${p.paidVia ? `<div class="tiny muted">Ödeme: ${p.paidVia === 'balance' ? 'Bakiyeden' : 'Havale/EFT (manuel onay)'} · ${fmtDate(p.paidAt)}${p.refunded ? ' · İade edildi' : ''}</div>` : ''}
+            ${p.paidVia ? `<div class="tiny muted">Ödeme: ${p.paidVia === 'balance' ? 'Bakiyeden' : 'Yönetici onayı (nakit/elden)'} · ${fmtDate(p.paidAt)}${p.refunded ? ' · İade edildi' : ''}</div>` : ''}
             ${p.reason ? `<div class="tiny muted">Not: ${esc(p.reason)}</div>` : ''}
             ${
               ['pending', 'awaiting_payment'].includes(p.status)
                 ? `<div class="req-actions">
-                  ${p.status === 'pending' ? `<button class="btn btn-green btn-xs" data-a="approve" data-id="${p.id}">${icon('check')}Onayla</button>` : ''}
-                  <button class="btn btn-gold btn-xs" data-a="confirm" data-id="${p.id}">${icon('wallet')}Ödeme Alındı</button>
+                  <button class="btn btn-green btn-xs" data-a="confirm" data-id="${p.id}">${icon('check')}Onayla (Ödeme Alındı)</button>
                   <button class="btn btn-red btn-xs" data-a="reject" data-id="${p.id}">${icon('x')}Reddet</button></div>`
                 : ''
             }
@@ -1888,7 +1893,7 @@ function screenAdmin(ctx) {
           payload = v;
         }
         if (a === 'confirm') {
-          const ok = await confirmModal('Ödeme Alındı', 'Bu talebin ödemesini aldığınızı onaylıyor musunuz? Kartlar oyuncu için aktif olacak.', {
+          const ok = await confirmModal('Talebi Onayla', 'Ödemeyi aldığını onaylıyor musun? Kartlar oyuncu için hemen aktif olacak.', {
             okLabel: 'Onayla',
             okCls: 'btn-green',
             iconName: 'wallet',
@@ -1897,7 +1902,7 @@ function screenAdmin(ctx) {
         }
         const r = await run(() => api.post(`/admin/purchases/${b.dataset.id}/${a}`, payload), b);
         if (r) {
-          toast({ approve: 'Talep onaylandı, ödeme bekleniyor.', confirm: 'Ödeme onaylandı, kartlar aktif.', reject: 'Talep reddedildi.' }[a], 'success');
+          toast({ confirm: 'Onaylandı, kartlar aktif.', reject: 'Talep reddedildi.' }[a], 'success');
           renderPayments();
         }
       });
