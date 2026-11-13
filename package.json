@@ -1,0 +1,29 @@
+{
+  "name": "tombala",
+  "version": "1.0.0",
+  "description": "Web tabanlı, gerçek zamanlı Tombala oyunu",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "test": "node --test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yukselkatircioglu20-maker/tombala.git"
+  },
+  "author": "",
+  "license": "UNLICENSED",
+  "bugs": {
+    "url": "https://github.com/yukselkatircioglu20-maker/tombala/issues"
+  },
+  "homepage": "https://github.com/yukselkatircioglu20-maker/tombala#readme",
+  "dependencies": {
+    "express": "^4.22.3",
+    "socket.io": "^4.8.4"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "private": true
+}

@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#060a17" />
+    <meta name="description" content="Tombala — Şansın en güzel hali. Kartını seç, canlı çekilişe katıl." />
+    <title>Tombala</title>
+    <link rel="icon" href="/img/icon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&family=Cinzel:wght@700;900&family=Dancing+Script:wght@600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/css/style.css" />
+    <script>
+      // Tema tercihini ilk boyamadan önce uygula
+      try {
+        var s = JSON.parse(localStorage.getItem('tb_settings') || '{}');
+        if (s.theme === 'light') document.documentElement.setAttribute('data-theme', 'light');
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div class="bg-layer" aria-hidden="true">
+      <svg viewBox="0 0 400 900" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <linearGradient id="sw1" x1="0" x2="1" y1="0" y2="0">
+            <stop offset="0" stop-color="#f6d27a" stop-opacity="0" />
+            <stop offset=".55" stop-color="#f6d27a" stop-opacity=".9" />
+            <stop offset="1" stop-color="#f6d27a" stop-opacity="0" />
+          </linearGradient>
+          <linearGradient id="sw2" x1="0" x2="1">
+            <stop offset="0" stop-color="#4b7bff" stop-opacity="0" />
+            <stop offset=".5" stop-color="#4b7bff" stop-opacity=".7" />
+            <stop offset="1" stop-color="#4b7bff" stop-opacity="0" />
+          </linearGradient>
+          <filter id="swg" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="4" /></filter>
+        </defs>
+        <g fill="none" class="sw-gold">
+          <path d="M-40 140 C 90 60, 230 210, 460 40" stroke="url(#sw1)" stroke-width="6" filter="url(#swg)" opacity=".5" />
+          <path d="M-40 140 C 90 60, 230 210, 460 40" stroke="url(#sw1)" stroke-width="1.2" />
+          <path d="M-40 175 C 110 90, 250 240, 460 80" stroke="url(#sw1)" stroke-width=".7" opacity=".6" />
+          <path d="M-60 760 C 80 640, 260 860, 470 700" stroke="url(#sw1)" stroke-width="8" filter="url(#swg)" opacity=".45" />
+          <path d="M-60 760 C 80 640, 260 860, 470 700" stroke="url(#sw1)" stroke-width="1.4" />
+          <path d="M-60 800 C 100 690, 270 900, 470 745" stroke="url(#sw1)" stroke-width=".7" opacity=".6" />
+        </g>
+        <g fill="none" class="sw-blue">
+          <path d="M-40 520 C 120 430, 220 620, 460 470" stroke="url(#sw2)" stroke-width="10" filter="url(#swg)" opacity=".35" />
+          <path d="M-40 520 C 120 430, 220 620, 460 470" stroke="url(#sw2)" stroke-width="1" opacity=".8" />
+        </g>
+      </svg>
+      <div class="sparkles"></div>
+    </div>
+
+    <div id="app"></div>
+    <nav id="nav" class="bottom-nav" hidden></nav>
+    <div id="overlay-root"></div>
+    <div id="toast-root" aria-live="polite"></div>
+
+    <noscript>Bu oyunu oynamak için JavaScript'i etkinleştirin.</noscript>
+    <script src="/socket.io/socket.io.js"></script>
+    <script type="module" src="/js/app.js"></script>
+  </body>
+</html>

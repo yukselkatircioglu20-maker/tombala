@@ -1,0 +1,11 @@
+{
+  "name": "Tombala",
+  "short_name": "Tombala",
+  "description": "Şansın en güzel hali — canlı tombala oyunu",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#060a17",
+  "theme_color": "#060a17",
+  "lang": "tr",
+  "icons": [{ "src": "/img/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
